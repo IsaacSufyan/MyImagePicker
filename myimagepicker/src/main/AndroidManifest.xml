@@ -1,0 +1,33 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    package="com.isaacsufyan.myimagepicker">
+
+    <application>
+
+        <activity
+            android:name="com.isaacsufyan.myimagepicker.ImagePickerActivity"
+            android:screenOrientation="unspecified" />
+
+        <provider
+            android:name="com.isaacsufyan.myimagepicker.ImagePickerFileProvider"
+            android:authorities="${applicationId}.imagepicker.provider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/image_picker_provider_paths" />
+
+        </provider>
+
+    </application>
+
+    <queries>
+        <intent>
+            <action android:name="android.media.action.IMAGE_CAPTURE" />
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.OPEN_DOCUMENT_TREE" />
+        </intent>
+    </queries>
+
+</manifest>
