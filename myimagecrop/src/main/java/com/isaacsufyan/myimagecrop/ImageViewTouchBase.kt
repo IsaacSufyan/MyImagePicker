@@ -1,412 +1,328 @@
-package com.isaacsufyan.myimagecrop;
+package com.isaacsufyan.myimagecrop
 
-import android.content.Context;
-import android.graphics.Bitmap;
-import android.graphics.Matrix;
-import android.graphics.RectF;
-import android.graphics.drawable.Drawable;
-import android.os.Handler;
-import android.util.AttributeSet;
-import android.view.KeyEvent;
+import android.content.Context
+import androidx.appcompat.widget.AppCompatImageView
+import com.isaacsufyan.myimagecrop.RotateBitmap
+import android.graphics.Bitmap
+import android.graphics.Matrix
+import android.graphics.drawable.Drawable
+import android.graphics.RectF
+import android.os.Handler
+import android.util.AttributeSet
+import android.view.KeyEvent
+import android.widget.ImageView.ScaleType
+import com.isaacsufyan.myimagecrop.ImageViewTouchBase
 
-import androidx.appcompat.widget.AppCompatImageView;
+internal abstract class ImageViewTouchBase : AppCompatImageView {
 
-abstract class ImageViewTouchBase extends AppCompatImageView {
+    private var mBaseMatrix = Matrix()
+    private var mSuppMatrix = Matrix()
+    private val mDisplayMatrix = Matrix()
+    private val mMatrixValues = FloatArray(9)
 
-    private static final String TAG = "ImageViewTouchBase";
+    protected val mBitmapDisplayed = RotateBitmap(null)
 
-    // This is the base transformation which is used to show the image
-    // initially.  The current computation for this shows the image in
-    // it's entirety, letterboxing as needed.  One could choose to
-    // show the image as cropped instead.
-    //
-    // This matrix is recomputed when we go from the thumbnail image to
-    // the full size image.
-    protected Matrix mBaseMatrix = new Matrix();
+    var mThisWidth = -1
+    var mThisHeight = -1
+    var mMaxZoom = 0f
+    var mLeft = 0
+    var mRight = 0
+    var mTop = 0
+    var mBottom = 0
 
-    // This is the supplementary transformation which reflects what
-    // the user has done in terms of zooming and panning.
-    //
-    // This matrix remains the same when we go from the thumbnail image
-    // to the full size image.
-    protected Matrix mSuppMatrix = new Matrix();
-
-    // This is the final matrix which is computed as the concatentation
-    // of the base matrix and the supplementary matrix.
-    private final Matrix mDisplayMatrix = new Matrix();
-
-    // Temporary buffer used for getting the values out of a matrix.
-    private final float[] mMatrixValues = new float[9];
-
-    // The current bitmap being displayed.
-    final protected RotateBitmap mBitmapDisplayed = new RotateBitmap(null);
-
-    int mThisWidth = -1, mThisHeight = -1;
-
-    float mMaxZoom;
-
-    int mLeft;
-
-    int mRight;
-
-    int mTop;
-
-    int mBottom;
-
-    // ImageViewTouchBase will pass a Bitmap to the Recycler if it has finished
-    // its use of that Bitmap.
-    public interface Recycler {
-
-        public void recycle(Bitmap b);
+    interface Recycler {
+        fun recycle(b: Bitmap?)
     }
 
-    public void setRecycler(Recycler r) {
-
-        mRecycler = r;
+    fun setRecycler(r: Recycler?) {
+        mRecycler = r
     }
 
-    private Recycler mRecycler;
-
-    @Override
-    protected void onLayout(boolean changed, int left, int top,
-                            int right, int bottom) {
-
-        super.onLayout(changed, left, top, right, bottom);
-        mLeft = left;
-        mRight = right;
-        mTop = top;
-        mBottom = bottom;
-        mThisWidth = right - left;
-        mThisHeight = bottom - top;
-        Runnable r = mOnLayoutRunnable;
+    private var mRecycler: Recycler? = null
+    override fun onLayout(
+        changed: Boolean, left: Int, top: Int,
+        right: Int, bottom: Int
+    ) {
+        super.onLayout(changed, left, top, right, bottom)
+        mLeft = left
+        mRight = right
+        mTop = top
+        mBottom = bottom
+        mThisWidth = right - left
+        mThisHeight = bottom - top
+        val r = mOnLayoutRunnable
         if (r != null) {
-            mOnLayoutRunnable = null;
-            r.run();
+            mOnLayoutRunnable = null
+            r.run()
         }
-        if (mBitmapDisplayed.getBitmap() != null) {
-            getProperBaseMatrix(mBitmapDisplayed, mBaseMatrix);
-            setImageMatrix(getImageViewMatrix());
+        if (mBitmapDisplayed.bitmap != null) {
+            getProperBaseMatrix(mBitmapDisplayed, mBaseMatrix)
+            imageMatrix = imageViewMatrix
         }
     }
 
-    @Override
-    public boolean onKeyDown(int keyCode, KeyEvent event) {
-
-        if (keyCode == KeyEvent.KEYCODE_BACK && getScale() > 1.0f) {
-            // If we're zoomed in, pressing Back jumps out to show the entire
-            // image, otherwise Back returns the user to the gallery.
-            zoomTo(1.0f);
-            return true;
+    override fun onKeyDown(keyCode: Int, event: KeyEvent): Boolean {
+        if (keyCode == KeyEvent.KEYCODE_BACK && scale > 1.0f) {
+            zoomTo(1.0f)
+            return true
         }
-        return super.onKeyDown(keyCode, event);
+        return super.onKeyDown(keyCode, event)
     }
 
-    protected Handler mHandler = new Handler();
-
-    @Override
-    public void setImageBitmap(Bitmap bitmap) {
-
-        setImageBitmap(bitmap, 0);
+    protected var mHandler = Handler()
+    override fun setImageBitmap(bitmap: Bitmap?) {
+        setImageBitmap(bitmap, 0)
     }
 
-    private void setImageBitmap(Bitmap bitmap, int rotation) {
-
-        super.setImageBitmap(bitmap);
-        Drawable d = getDrawable();
-        if (d != null) {
-            d.setDither(true);
-        }
-
-        Bitmap old = mBitmapDisplayed.getBitmap();
-        mBitmapDisplayed.setBitmap(bitmap);
-        mBitmapDisplayed.setRotation(rotation);
-
+    private fun setImageBitmap(bitmap: Bitmap?, rotation: Int) {
+        super.setImageBitmap(bitmap)
+        val d = drawable
+        d?.setDither(true)
+        val old = mBitmapDisplayed.bitmap
+        mBitmapDisplayed.bitmap = bitmap
+        mBitmapDisplayed.rotation = rotation
         if (old != null && old != bitmap && mRecycler != null) {
-            mRecycler.recycle(old);
+            mRecycler!!.recycle(old)
         }
     }
 
-    public void clear() {
-
-        setImageBitmapResetBase(null, true);
+    fun clear() {
+        setImageBitmapResetBase(null, true)
     }
 
-    private Runnable mOnLayoutRunnable = null;
+    private var mOnLayoutRunnable: Runnable? = null
 
-    // This function changes bitmap, reset base matrix according to the size
-    // of the bitmap, and optionally reset the supplementary matrix.
-    public void setImageBitmapResetBase(final Bitmap bitmap,
-                                        final boolean resetSupp) {
-
-        setImageRotateBitmapResetBase(new RotateBitmap(bitmap), resetSupp);
+    fun setImageBitmapResetBase(
+        bitmap: Bitmap?,
+        resetSupp: Boolean
+    ) {
+        setImageRotateBitmapResetBase(RotateBitmap(bitmap), resetSupp)
     }
 
-    public void setImageRotateBitmapResetBase(final RotateBitmap bitmap,
-                                              final boolean resetSupp) {
-
-        final int viewWidth = getWidth();
-
+    fun setImageRotateBitmapResetBase(
+        bitmap: RotateBitmap,
+        resetSupp: Boolean
+    ) {
+        val viewWidth = width
         if (viewWidth <= 0) {
-            mOnLayoutRunnable = new Runnable() {
-                public void run() {
-
-                    setImageRotateBitmapResetBase(bitmap, resetSupp);
-                }
-            };
-            return;
+            mOnLayoutRunnable = Runnable { setImageRotateBitmapResetBase(bitmap, resetSupp) }
+            return
         }
-
-        if (bitmap.getBitmap() != null) {
-            getProperBaseMatrix(bitmap, mBaseMatrix);
-            setImageBitmap(bitmap.getBitmap(), bitmap.getRotation());
+        if (bitmap.bitmap != null) {
+            getProperBaseMatrix(bitmap, mBaseMatrix)
+            setImageBitmap(bitmap.bitmap, bitmap.rotation)
         } else {
-            mBaseMatrix.reset();
-            setImageBitmap(null);
+            mBaseMatrix.reset()
+            setImageBitmap(null)
         }
-
         if (resetSupp) {
-            mSuppMatrix.reset();
+            mSuppMatrix.reset()
         }
-        setImageMatrix(getImageViewMatrix());
-        mMaxZoom = maxZoom();
+        imageMatrix = imageViewMatrix
+        mMaxZoom = maxZoom()
     }
 
-    // Center as much as possible in one or both axis.  Centering is
-    // defined as follows:  if the image is scaled down below the
-    // view's dimensions then center it (literally).  If the image
-    // is scaled larger than the view and is translated out of view
-    // then translate it back into view (i.e. eliminate black bars).
-    protected void center(boolean horizontal, boolean vertical) {
-
-        if (mBitmapDisplayed.getBitmap() == null) {
-            return;
+    fun center(horizontal: Boolean, vertical: Boolean) {
+        if (mBitmapDisplayed.bitmap == null) {
+            return
         }
-
-        Matrix m = getImageViewMatrix();
-
-        RectF rect = new RectF(0, 0,
-                mBitmapDisplayed.getBitmap().getWidth(),
-                mBitmapDisplayed.getBitmap().getHeight());
-
-        m.mapRect(rect);
-
-        float height = rect.height();
-        float width = rect.width();
-
-        float deltaX = 0, deltaY = 0;
-
+        val m = imageViewMatrix
+        val rect = RectF(
+            0f, 0f,
+            mBitmapDisplayed.bitmap!!.width.toFloat(),
+            mBitmapDisplayed.bitmap!!.height.toFloat()
+        )
+        m.mapRect(rect)
+        val height = rect.height()
+        val width = rect.width()
+        var deltaX = 0f
+        var deltaY = 0f
         if (vertical) {
-            int viewHeight = getHeight();
+            val viewHeight = getHeight()
             if (height < viewHeight) {
-                deltaY = (viewHeight - height) / 2 - rect.top;
+                deltaY = (viewHeight - height) / 2 - rect.top
             } else if (rect.top > 0) {
-                deltaY = -rect.top;
+                deltaY = -rect.top
             } else if (rect.bottom < viewHeight) {
-                deltaY = getHeight() - rect.bottom;
+                deltaY = getHeight() - rect.bottom
             }
         }
-
         if (horizontal) {
-            int viewWidth = getWidth();
+            val viewWidth = getWidth()
             if (width < viewWidth) {
-                deltaX = (viewWidth - width) / 2 - rect.left;
+                deltaX = (viewWidth - width) / 2 - rect.left
             } else if (rect.left > 0) {
-                deltaX = -rect.left;
+                deltaX = -rect.left
             } else if (rect.right < viewWidth) {
-                deltaX = viewWidth - rect.right;
+                deltaX = viewWidth - rect.right
             }
         }
-
-        postTranslate(deltaX, deltaY);
-        setImageMatrix(getImageViewMatrix());
+        postTranslate(deltaX, deltaY)
+        imageMatrix = imageViewMatrix
     }
 
-    public ImageViewTouchBase(Context context) {
-
-        super(context);
-        init();
+    constructor(context: Context?) : super(context!!) {
+        init()
     }
 
-    public ImageViewTouchBase(Context context, AttributeSet attrs) {
-
-        super(context, attrs);
-        init();
+    constructor(context: Context?, attrs: AttributeSet?) : super(
+        context!!, attrs
+    ) {
+        init()
     }
 
-    private void init() {
-
-        setScaleType(ScaleType.MATRIX);
+    private fun init() {
+        scaleType = ScaleType.MATRIX
     }
 
-    protected float getValue(Matrix matrix, int whichValue) {
-
-        matrix.getValues(mMatrixValues);
-        return mMatrixValues[whichValue];
+    protected fun getValue(matrix: Matrix, whichValue: Int): Float {
+        matrix.getValues(mMatrixValues)
+        return mMatrixValues[whichValue]
     }
 
     // Get the scale factor out of the matrix.
-    protected float getScale(Matrix matrix) {
-
-        return getValue(matrix, Matrix.MSCALE_X);
+    protected fun getScale(matrix: Matrix): Float {
+        return getValue(matrix, Matrix.MSCALE_X)
     }
 
-    protected float getScale() {
-
-        return getScale(mSuppMatrix);
-    }
+    val scale: Float
+        get() = getScale(mSuppMatrix)
 
     // Setup the base matrix so that the image is centered and scaled properly.
-    private void getProperBaseMatrix(RotateBitmap bitmap, Matrix matrix) {
-
-        float viewWidth = getWidth();
-        float viewHeight = getHeight();
-
-        float w = bitmap.getWidth();
-        float h = bitmap.getHeight();
-        int rotation = bitmap.getRotation();
-        matrix.reset();
+    private fun getProperBaseMatrix(bitmap: RotateBitmap, matrix: Matrix) {
+        val viewWidth = width.toFloat()
+        val viewHeight = height.toFloat()
+        val w = bitmap.width.toFloat()
+        val h = bitmap.height.toFloat()
+        val rotation = bitmap.rotation
+        matrix.reset()
 
         // We limit up-scaling to 2x otherwise the result may look bad if it's
         // a small icon.
-        float widthScale = Math.min(viewWidth / w, 2.0f);
-        float heightScale = Math.min(viewHeight / h, 2.0f);
-        float scale = Math.min(widthScale, heightScale);
-
-        matrix.postConcat(bitmap.getRotateMatrix());
-        matrix.postScale(scale, scale);
-
+        val widthScale = Math.min(viewWidth / w, 2.0f)
+        val heightScale = Math.min(viewHeight / h, 2.0f)
+        val scale = Math.min(widthScale, heightScale)
+        matrix.postConcat(bitmap.rotateMatrix)
+        matrix.postScale(scale, scale)
         matrix.postTranslate(
-                (viewWidth - w * scale) / 2F,
-                (viewHeight - h * scale) / 2F);
-    }
+            (viewWidth - w * scale) / 2f,
+            (viewHeight - h * scale) / 2f
+        )
+    }// The final matrix is computed as the concatentation of the base matrix
 
+    // and the supplementary matrix.
     // Combine the base matrix and the supp matrix to make the final matrix.
-    protected Matrix getImageViewMatrix() {
-        // The final matrix is computed as the concatentation of the base matrix
-        // and the supplementary matrix.
-        mDisplayMatrix.set(mBaseMatrix);
-        mDisplayMatrix.postConcat(mSuppMatrix);
-        return mDisplayMatrix;
-    }
-
-    static final float SCALE_RATE = 1.25F;
+    protected val imageViewMatrix: Matrix
+        protected get() {
+            // The final matrix is computed as the concatentation of the base matrix
+            // and the supplementary matrix.
+            mDisplayMatrix.set(mBaseMatrix)
+            mDisplayMatrix.postConcat(mSuppMatrix)
+            return mDisplayMatrix
+        }
 
     // Sets the maximum zoom, which is a scale relative to the base matrix. It
     // is calculated to show the image at 400% zoom regardless of screen or
     // image orientation. If in the future we decode the full 3 megapixel image,
     // rather than the current 1024x768, this should be changed down to 200%.
-    protected float maxZoom() {
-
-        if (mBitmapDisplayed.getBitmap() == null) {
-            return 1F;
+    protected fun maxZoom(): Float {
+        if (mBitmapDisplayed.bitmap == null) {
+            return 1f
         }
-
-        float fw = (float) mBitmapDisplayed.getWidth() / (float) mThisWidth;
-        float fh = (float) mBitmapDisplayed.getHeight() / (float) mThisHeight;
-        float max = Math.max(fw, fh) * 4;
-        return max;
+        val fw = mBitmapDisplayed.width.toFloat() / mThisWidth.toFloat()
+        val fh = mBitmapDisplayed.height.toFloat() / mThisHeight.toFloat()
+        return Math.max(fw, fh) * 4
     }
 
-    protected void zoomTo(float scale, float centerX, float centerY) {
-
+    protected open fun zoomTo(scale: Float, centerX: Float, centerY: Float) {
+        var scale = scale
         if (scale > mMaxZoom) {
-            scale = mMaxZoom;
+            scale = mMaxZoom
         }
-
-        float oldScale = getScale();
-        float deltaScale = scale / oldScale;
-
-        mSuppMatrix.postScale(deltaScale, deltaScale, centerX, centerY);
-        setImageMatrix(getImageViewMatrix());
-        center(true, true);
+        val oldScale = scale
+        val deltaScale = scale / oldScale
+        mSuppMatrix.postScale(deltaScale, deltaScale, centerX, centerY)
+        imageMatrix = imageViewMatrix
+        center(true, true)
     }
 
-    protected void zoomTo(final float scale, final float centerX,
-                          final float centerY, final float durationMs) {
-
-        final float incrementPerMs = (scale - getScale()) / durationMs;
-        final float oldScale = getScale();
-        final long startTime = System.currentTimeMillis();
-
-        mHandler.post(new Runnable() {
-            public void run() {
-
-                long now = System.currentTimeMillis();
-                float currentMs = Math.min(durationMs, now - startTime);
-                float target = oldScale + (incrementPerMs * currentMs);
-                zoomTo(target, centerX, centerY);
-
+    protected fun zoomTo(
+        scale: Float, centerX: Float,
+        centerY: Float, durationMs: Float
+    ) {
+        val incrementPerMs = (scale - scale) / durationMs
+        val oldScale = scale
+        val startTime = System.currentTimeMillis()
+        mHandler.post(object : Runnable {
+            override fun run() {
+                val now = System.currentTimeMillis()
+                val currentMs = Math.min(durationMs, (now - startTime).toFloat())
+                val target = oldScale + incrementPerMs * currentMs
+                zoomTo(target, centerX, centerY)
                 if (currentMs < durationMs) {
-                    mHandler.post(this);
+                    mHandler.post(this)
                 }
             }
-        });
+        })
     }
 
-    protected void zoomTo(float scale) {
-
-        float cx = getWidth() / 2F;
-        float cy = getHeight() / 2F;
-
-        zoomTo(scale, cx, cy);
+    protected fun zoomTo(scale: Float) {
+        val cx = width / 2f
+        val cy = height / 2f
+        zoomTo(scale, cx, cy)
     }
 
-    protected void zoomIn() {
-
-        zoomIn(SCALE_RATE);
+    protected open fun zoomIn() {
+        zoomIn(SCALE_RATE)
     }
 
-    protected void zoomOut() {
-
-        zoomOut(SCALE_RATE);
+    protected open fun zoomOut() {
+        zoomOut(SCALE_RATE)
     }
 
-    protected void zoomIn(float rate) {
-
-        if (getScale() >= mMaxZoom) {
-            return;     // Don't let the user zoom into the molecular level.
+    protected fun zoomIn(rate: Float) {
+        if (scale >= mMaxZoom) {
+            return  // Don't let the user zoom into the molecular level.
         }
-        if (mBitmapDisplayed.getBitmap() == null) {
-            return;
+        if (mBitmapDisplayed.bitmap == null) {
+            return
         }
-
-        float cx = getWidth() / 2F;
-        float cy = getHeight() / 2F;
-
-        mSuppMatrix.postScale(rate, rate, cx, cy);
-        setImageMatrix(getImageViewMatrix());
+        val cx = width / 2f
+        val cy = height / 2f
+        mSuppMatrix.postScale(rate, rate, cx, cy)
+        imageMatrix = imageViewMatrix
     }
 
-    protected void zoomOut(float rate) {
-
-        if (mBitmapDisplayed.getBitmap() == null) {
-            return;
+    protected fun zoomOut(rate: Float) {
+        if (mBitmapDisplayed.bitmap == null) {
+            return
         }
-
-        float cx = getWidth() / 2F;
-        float cy = getHeight() / 2F;
+        val cx = width / 2f
+        val cy = height / 2f
 
         // Zoom out to at most 1x.
-        Matrix tmp = new Matrix(mSuppMatrix);
-        tmp.postScale(1F / rate, 1F / rate, cx, cy);
-
-        if (getScale(tmp) < 1F) {
-            mSuppMatrix.setScale(1F, 1F, cx, cy);
+        val tmp = Matrix(mSuppMatrix)
+        tmp.postScale(1f / rate, 1f / rate, cx, cy)
+        if (getScale(tmp) < 1f) {
+            mSuppMatrix.setScale(1f, 1f, cx, cy)
         } else {
-            mSuppMatrix.postScale(1F / rate, 1F / rate, cx, cy);
+            mSuppMatrix.postScale(1f / rate, 1f / rate, cx, cy)
         }
-        setImageMatrix(getImageViewMatrix());
-        center(true, true);
+        imageMatrix = imageViewMatrix
+        center(true, true)
     }
 
-    protected void postTranslate(float dx, float dy) {
-
-        mSuppMatrix.postTranslate(dx, dy);
+    protected open fun postTranslate(dx: Float, dy: Float) {
+        mSuppMatrix.postTranslate(dx, dy)
     }
 
-    protected void panBy(float dx, float dy) {
+    protected fun panBy(dx: Float, dy: Float) {
+        postTranslate(dx, dy)
+        imageMatrix = imageViewMatrix
+    }
 
-        postTranslate(dx, dy);
-        setImageMatrix(getImageViewMatrix());
+    companion object {
+        private const val TAG = "ImageViewTouchBase"
+        const val SCALE_RATE = 1.25f
     }
 }

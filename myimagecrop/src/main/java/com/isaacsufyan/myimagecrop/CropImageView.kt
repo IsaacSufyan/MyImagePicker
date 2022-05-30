@@ -1,236 +1,211 @@
-package com.isaacsufyan.myimagecrop;
+package com.isaacsufyan.myimagecrop
 
-import android.annotation.SuppressLint;
-import android.content.Context;
-import android.graphics.Canvas;
-import android.graphics.Rect;
-import android.util.AttributeSet;
-import android.view.MotionEvent;
+import android.view.MotionEvent
+import android.annotation.SuppressLint
+import android.content.Context
+import android.graphics.Canvas
+import android.util.AttributeSet
+import java.util.ArrayList
 
-import java.util.ArrayList;
-
-class CropImageView extends ImageViewTouchBase {
-
-    ArrayList<HighlightView> mHighlightViews = new ArrayList<>();
-    HighlightView mMotionHighlightView = null;
-    float mLastX, mLastY;
-    int mMotionEdge;
-
-    private final Context mContext;
-
-    @Override
-    protected void onLayout(boolean changed, int left, int top,
-                            int right, int bottom) {
-
-        super.onLayout(changed, left, top, right, bottom);
-        if (mBitmapDisplayed.getBitmap() != null) {
-            for (HighlightView hv : mHighlightViews) {
-                hv.mMatrix.set(getImageMatrix());
-                hv.invalidate();
+internal class CropImageView(private val mContext: Context, attrs: AttributeSet?) :
+    ImageViewTouchBase(
+        mContext, attrs
+    ) {
+    @JvmField
+    var mHighlightViews = ArrayList<HighlightView>()
+    var mMotionHighlightView: HighlightView? = null
+    var mLastX = 0f
+    var mLastY = 0f
+    var mMotionEdge = 0
+    override fun onLayout(
+        changed: Boolean, left: Int, top: Int,
+        right: Int, bottom: Int
+    ) {
+        super.onLayout(changed, left, top, right, bottom)
+        if (mBitmapDisplayed.bitmap != null) {
+            for (hv in mHighlightViews) {
+                hv.mMatrix.set(imageMatrix)
+                hv.invalidate()
                 if (hv.mIsFocused) {
-                    centerBasedOnHighlightView(hv);
+                    centerBasedOnHighlightView(hv)
                 }
             }
         }
     }
 
-    public CropImageView(Context context, AttributeSet attrs) {
-        super(context, attrs);
-        this.mContext = context;
-    }
-
-    @Override
-    protected void zoomTo(float scale, float centerX, float centerY) {
-        super.zoomTo(scale, centerX, centerY);
-        for (HighlightView hv : mHighlightViews) {
-            hv.mMatrix.set(getImageMatrix());
-            hv.invalidate();
+    override fun zoomTo(scale: Float, centerX: Float, centerY: Float) {
+        super.zoomTo(scale, centerX, centerY)
+        for (hv in mHighlightViews) {
+            hv.mMatrix.set(imageMatrix)
+            hv.invalidate()
         }
     }
 
-    @Override
-    protected void zoomIn() {
-        super.zoomIn();
-        for (HighlightView hv : mHighlightViews) {
-            hv.mMatrix.set(getImageMatrix());
-            hv.invalidate();
+    override fun zoomIn() {
+        super.zoomIn()
+        for (hv in mHighlightViews) {
+            hv.mMatrix.set(imageMatrix)
+            hv.invalidate()
         }
     }
 
-    @Override
-    protected void zoomOut() {
-
-        super.zoomOut();
-        for (HighlightView hv : mHighlightViews) {
-            hv.mMatrix.set(getImageMatrix());
-            hv.invalidate();
+    override fun zoomOut() {
+        super.zoomOut()
+        for (hv in mHighlightViews) {
+            hv.mMatrix.set(imageMatrix)
+            hv.invalidate()
         }
     }
 
-    @Override
-    protected void postTranslate(float deltaX, float deltaY) {
-
-        super.postTranslate(deltaX, deltaY);
-        for (int i = 0; i < mHighlightViews.size(); i++) {
-            HighlightView hv = mHighlightViews.get(i);
-            hv.mMatrix.postTranslate(deltaX, deltaY);
-            hv.invalidate();
+    override fun postTranslate(deltaX: Float, deltaY: Float) {
+        super.postTranslate(deltaX, deltaY)
+        for (i in mHighlightViews.indices) {
+            val hv = mHighlightViews[i]
+            hv.mMatrix.postTranslate(deltaX, deltaY)
+            hv.invalidate()
         }
     }
 
-    private void recomputeFocus(MotionEvent event) {
-
-        for (int i = 0; i < mHighlightViews.size(); i++) {
-            HighlightView hv = mHighlightViews.get(i);
-            hv.setFocus(false);
-            hv.invalidate();
+    private fun recomputeFocus(event: MotionEvent) {
+        for (i in mHighlightViews.indices) {
+            val hv = mHighlightViews[i]
+            hv.setFocus(false)
+            hv.invalidate()
         }
-
-        for (int i = 0; i < mHighlightViews.size(); i++) {
-            HighlightView hv = mHighlightViews.get(i);
-            int edge = hv.getHit(event.getX(), event.getY());
+        for (i in mHighlightViews.indices) {
+            val hv = mHighlightViews[i]
+            val edge = hv.getHit(event.x, event.y)
             if (edge != HighlightView.GROW_NONE) {
                 if (!hv.hasFocus()) {
-                    hv.setFocus(true);
-                    hv.invalidate();
+                    hv.setFocus(true)
+                    hv.invalidate()
                 }
-                break;
+                break
             }
         }
-        invalidate();
+        invalidate()
     }
 
     @SuppressLint("ClickableViewAccessibility")
-    @Override
-    public boolean onTouchEvent(MotionEvent event) {
-
-        CropImage cropImage = (CropImage) mContext;
+    override fun onTouchEvent(event: MotionEvent): Boolean {
+        val cropImage = mContext as CropImage
         if (cropImage.mSaving) {
-            return false;
+            return false
         }
-
-        switch (event.getAction()) {
-            case MotionEvent.ACTION_DOWN:
-                if (cropImage.mWaitingToPick) {
-                    recomputeFocus(event);
-                } else {
-                    for (int i = 0; i < mHighlightViews.size(); i++) {
-                        HighlightView hv = mHighlightViews.get(i);
-                        int edge = hv.getHit(event.getX(), event.getY());
-                        if (edge != HighlightView.GROW_NONE) {
-                            mMotionEdge = edge;
-                            mMotionHighlightView = hv;
-                            mLastX = event.getX();
-                            mLastY = event.getY();
-                            mMotionHighlightView.setMode(
-                                    (edge == HighlightView.MOVE)
-                                            ? HighlightView.ModifyMode.Move
-                                            : HighlightView.ModifyMode.Grow);
-                            break;
-                        }
+        when (event.action) {
+            MotionEvent.ACTION_DOWN -> if (cropImage.mWaitingToPick) {
+                recomputeFocus(event)
+            } else {
+                var i = 0
+                while (i < mHighlightViews.size) {
+                    val hv = mHighlightViews[i]
+                    val edge = hv.getHit(event.x, event.y)
+                    if (edge != HighlightView.GROW_NONE) {
+                        mMotionEdge = edge
+                        mMotionHighlightView = hv
+                        mLastX = event.x
+                        mLastY = event.y
+                        mMotionHighlightView!!.mode =
+                            if (edge == HighlightView.MOVE) HighlightView.ModifyMode.Move else HighlightView.ModifyMode.Grow
+                        break
                     }
+                    i++
                 }
-                break;
-            case MotionEvent.ACTION_UP:
+            }
+            MotionEvent.ACTION_UP -> {
                 if (cropImage.mWaitingToPick) {
-                    for (int i = 0; i < mHighlightViews.size(); i++) {
-                        HighlightView hv = mHighlightViews.get(i);
+                    var i = 0
+                    while (i < mHighlightViews.size) {
+                        val hv = mHighlightViews[i]
                         if (hv.hasFocus()) {
-                            cropImage.mCrop = hv;
-                            for (int j = 0; j < mHighlightViews.size(); j++) {
+                            cropImage.mCrop = hv
+                            var j = 0
+                            while (j < mHighlightViews.size) {
                                 if (j == i) {
-                                    continue;
+                                    j++
+                                    continue
                                 }
-                                mHighlightViews.get(j).setHidden(true);
+                                mHighlightViews[j].setHidden(true)
+                                j++
                             }
-                            centerBasedOnHighlightView(hv);
-                            ((CropImage) mContext).mWaitingToPick = false;
-                            return true;
+                            centerBasedOnHighlightView(hv)
+                            mContext.mWaitingToPick = false
+                            return true
                         }
+                        i++
                     }
                 } else if (mMotionHighlightView != null) {
-                    centerBasedOnHighlightView(mMotionHighlightView);
-                    mMotionHighlightView.setMode(
-                            HighlightView.ModifyMode.None);
+                    centerBasedOnHighlightView(mMotionHighlightView!!)
+                    mMotionHighlightView!!.mode = HighlightView.ModifyMode.None
                 }
-                mMotionHighlightView = null;
-                break;
-            case MotionEvent.ACTION_MOVE:
-                if (cropImage.mWaitingToPick) {
-                    recomputeFocus(event);
-                } else if (mMotionHighlightView != null) {
-                    mMotionHighlightView.handleMotion(mMotionEdge,
-                            event.getX() - mLastX,
-                            event.getY() - mLastY);
-                    mLastX = event.getX();
-                    mLastY = event.getY();
-                    ensureVisible(mMotionHighlightView);
-                }
-                break;
+                mMotionHighlightView = null
+            }
+            MotionEvent.ACTION_MOVE -> if (cropImage.mWaitingToPick) {
+                recomputeFocus(event)
+            } else if (mMotionHighlightView != null) {
+                mMotionHighlightView!!.handleMotion(
+                    mMotionEdge,
+                    event.x - mLastX,
+                    event.y - mLastY
+                )
+                mLastX = event.x
+                mLastY = event.y
+                ensureVisible(mMotionHighlightView!!)
+            }
         }
-
-        switch (event.getAction()) {
-            case MotionEvent.ACTION_UP:
-                center(true, true);
-                break;
-            case MotionEvent.ACTION_MOVE:
-                if (getScale() == 1F) {
-                    center(true, true);
-                }
-                break;
+        when (event.action) {
+            MotionEvent.ACTION_UP -> center(true, true)
+            MotionEvent.ACTION_MOVE -> if (scale == 1f) {
+                center(true, true)
+            }
         }
-        return true;
+        return true
     }
 
-    private void ensureVisible(HighlightView hv) {
-        Rect r = hv.mDrawRect;
-        int panDeltaX1 = Math.max(0, mLeft - r.left);
-        int panDeltaX2 = Math.min(0, mRight - r.right);
-        int panDeltaY1 = Math.max(0, mTop - r.top);
-        int panDeltaY2 = Math.min(0, mBottom - r.bottom);
-        int panDeltaX = panDeltaX1 != 0 ? panDeltaX1 : panDeltaX2;
-        int panDeltaY = panDeltaY1 != 0 ? panDeltaY1 : panDeltaY2;
+    private fun ensureVisible(hv: HighlightView) {
+        val r = hv.mDrawRect
+        val panDeltaX1 = Math.max(0, mLeft - r.left)
+        val panDeltaX2 = Math.min(0, mRight - r.right)
+        val panDeltaY1 = Math.max(0, mTop - r.top)
+        val panDeltaY2 = Math.min(0, mBottom - r.bottom)
+        val panDeltaX = if (panDeltaX1 != 0) panDeltaX1 else panDeltaX2
+        val panDeltaY = if (panDeltaY1 != 0) panDeltaY1 else panDeltaY2
         if (panDeltaX != 0 || panDeltaY != 0) {
-            panBy(panDeltaX, panDeltaY);
+            panBy(panDeltaX.toFloat(), panDeltaY.toFloat())
         }
     }
 
-    private void centerBasedOnHighlightView(HighlightView hv) {
-
-        Rect drawRect = hv.mDrawRect;
-
-        float width = drawRect.width();
-        float height = drawRect.height();
-
-        float thisWidth = getWidth();
-        float thisHeight = getHeight();
-
-        float z1 = thisWidth / width * .6F;
-        float z2 = thisHeight / height * .6F;
-
-        float zoom = Math.min(z1, z2);
-        zoom = zoom * this.getScale();
-        zoom = Math.max(1F, zoom);
-        if ((Math.abs(zoom - getScale()) / zoom) > .1) {
-            float[] coordinates = new float[]{hv.mCropRect.centerX(),
-                    hv.mCropRect.centerY()};
-            getImageMatrix().mapPoints(coordinates);
-            zoomTo(zoom, coordinates[0], coordinates[1], 300F);
+    private fun centerBasedOnHighlightView(hv: HighlightView) {
+        val drawRect = hv.mDrawRect
+        val width = drawRect.width().toFloat()
+        val height = drawRect.height().toFloat()
+        val thisWidth = getWidth().toFloat()
+        val thisHeight = getHeight().toFloat()
+        val z1 = thisWidth / width * .6f
+        val z2 = thisHeight / height * .6f
+        var zoom = Math.min(z1, z2)
+        zoom = zoom * scale
+        zoom = Math.max(1f, zoom)
+        if (Math.abs(zoom - scale) / zoom > .1) {
+            val coordinates = floatArrayOf(
+                hv.mCropRect.centerX(),
+                hv.mCropRect.centerY()
+            )
+            imageMatrix.mapPoints(coordinates)
+            zoomTo(zoom, coordinates[0], coordinates[1], 300f)
         }
-
-        ensureVisible(hv);
+        ensureVisible(hv)
     }
 
-    @Override
-    protected void onDraw(Canvas canvas) {
-        super.onDraw(canvas);
-        for (int i = 0; i < mHighlightViews.size(); i++) {
-            mHighlightViews.get(i).draw(canvas);
+    override fun onDraw(canvas: Canvas) {
+        super.onDraw(canvas)
+        for (i in mHighlightViews.indices) {
+            mHighlightViews[i].draw(canvas)
         }
     }
 
-    public void add(HighlightView hv) {
-        mHighlightViews.add(hv);
-        invalidate();
+    fun add(hv: HighlightView) {
+        mHighlightViews.add(hv)
+        invalidate()
     }
 }

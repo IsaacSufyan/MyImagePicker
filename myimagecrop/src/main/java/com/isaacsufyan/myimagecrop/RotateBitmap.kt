@@ -1,83 +1,53 @@
-package com.isaacsufyan.myimagecrop;
+package com.isaacsufyan.myimagecrop
 
-import android.graphics.Bitmap;
-import android.graphics.Matrix;
+import android.graphics.Bitmap
+import android.graphics.Matrix
 
-public class RotateBitmap {
+class RotateBitmap {
+    var bitmap: Bitmap?
+    var rotation: Int
 
-    public static final String TAG = "RotateBitmap";
-    private Bitmap mBitmap;
-    private int    mRotation;
-
-    public RotateBitmap(Bitmap bitmap) {
-
-        mBitmap = bitmap;
-        mRotation = 0;
+    constructor(bitmap: Bitmap?) {
+        this.bitmap = bitmap
+        rotation = 0
     }
 
-    public RotateBitmap(Bitmap bitmap, int rotation) {
-        mBitmap = bitmap;
-        mRotation = rotation % 360;
+    constructor(bitmap: Bitmap?, rotation: Int) {
+        this.bitmap = bitmap
+        this.rotation = rotation % 360
     }
 
-    public void setRotation(int rotation) {
-
-        mRotation = rotation;
-    }
-
-    public int getRotation() {
-
-        return mRotation;
-    }
-
-    public Bitmap getBitmap() {
-
-        return mBitmap;
-    }
-
-    public void setBitmap(Bitmap bitmap) {
-        mBitmap = bitmap;
-    }
-
-    public Matrix getRotateMatrix() {
-        Matrix matrix = new Matrix();
-        if (mRotation != 0) {
-            int cx = mBitmap.getWidth() / 2;
-            int cy = mBitmap.getHeight() / 2;
-            matrix.preTranslate(-cx, -cy);
-            matrix.postRotate(mRotation);
-            matrix.postTranslate(getWidth() / 2f, getHeight() / 2f);
+    val rotateMatrix: Matrix
+        get() {
+            val matrix = Matrix()
+            if (rotation != 0) {
+                val cx = bitmap!!.width / 2
+                val cy = bitmap!!.height / 2
+                matrix.preTranslate(-cx.toFloat(), -cy.toFloat())
+                matrix.postRotate(rotation.toFloat())
+                matrix.postTranslate(width / 2f, height / 2f)
+            }
+            return matrix
         }
-        return matrix;
-    }
-
-    public boolean isOrientationChanged() {
-
-        return (mRotation / 90) % 2 != 0;
-    }
-
-    public int getHeight() {
-
-        if (isOrientationChanged()) {
-            return mBitmap.getWidth();
+    private val isOrientationChanged: Boolean
+        get() = rotation / 90 % 2 != 0
+    val height: Int
+        get() = if (isOrientationChanged) {
+            bitmap!!.width
         } else {
-            return mBitmap.getHeight();
+            bitmap!!.height
         }
-    }
-
-    public int getWidth() {
-        if (isOrientationChanged()) {
-            return mBitmap.getHeight();
+    val width: Int
+        get() = if (isOrientationChanged) {
+            bitmap!!.height
         } else {
-            return mBitmap.getWidth();
+            bitmap!!.width
         }
-    }
 
-    public void recycle() {
-        if (mBitmap != null) {
-            mBitmap.recycle();
-            mBitmap = null;
+    fun recycle() {
+        if (bitmap != null) {
+            bitmap!!.recycle()
+            bitmap = null
         }
     }
 }
-

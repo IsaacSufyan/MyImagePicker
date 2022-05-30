@@ -1,96 +1,66 @@
-package com.isaacsufyan.myimagecrop;
+package com.isaacsufyan.myimagecrop
 
-import android.app.Activity;
-import android.os.Bundle;
+import android.app.Activity
+import com.isaacsufyan.myimagecrop.MonitoredActivity.LifeCycleListener
+import com.isaacsufyan.myimagecrop.MonitoredActivity
+import android.os.Bundle
+import java.util.ArrayList
 
-import java.util.ArrayList;
+open class MonitoredActivity : Activity() {
+    private val mListeners = ArrayList<LifeCycleListener>()
 
-public class MonitoredActivity extends Activity {
-
-    private final ArrayList<LifeCycleListener> mListeners =
-            new ArrayList<>();
-
-    public static interface LifeCycleListener {
-
-        public void onActivityCreated(MonitoredActivity activity);
-
-        public void onActivityDestroyed(MonitoredActivity activity);
-
-        public void onActivityPaused(MonitoredActivity activity);
-
-        public void onActivityResumed(MonitoredActivity activity);
-
-        public void onActivityStarted(MonitoredActivity activity);
-
-        public void onActivityStopped(MonitoredActivity activity);
+    interface LifeCycleListener {
+        fun onActivityCreated(activity: MonitoredActivity?)
+        fun onActivityDestroyed(activity: MonitoredActivity?)
+        fun onActivityPaused(activity: MonitoredActivity?)
+        fun onActivityResumed(activity: MonitoredActivity?)
+        fun onActivityStarted(activity: MonitoredActivity?)
+        fun onActivityStopped(activity: MonitoredActivity?)
     }
 
-    public static class LifeCycleAdapter implements LifeCycleListener {
+    open class LifeCycleAdapter : LifeCycleListener {
+        override fun onActivityCreated(activity: MonitoredActivity?) {}
+        override fun onActivityDestroyed(activity: MonitoredActivity?) {}
+        override fun onActivityPaused(activity: MonitoredActivity?) {}
+        override fun onActivityResumed(activity: MonitoredActivity?) {}
+        override fun onActivityStarted(activity: MonitoredActivity?) {}
+        override fun onActivityStopped(activity: MonitoredActivity?) {}
+    }
 
-        public void onActivityCreated(MonitoredActivity activity) {
+    fun addLifeCycleListener(listener: LifeCycleListener) {
+        if (mListeners.contains(listener)) return
+        mListeners.add(listener)
+    }
 
-        }
+    fun removeLifeCycleListener(listener: LifeCycleListener) {
+        mListeners.remove(listener)
+    }
 
-        public void onActivityDestroyed(MonitoredActivity activity) {
-
-        }
-
-        public void onActivityPaused(MonitoredActivity activity) {
-
-        }
-
-        public void onActivityResumed(MonitoredActivity activity) {
-
-        }
-
-        public void onActivityStarted(MonitoredActivity activity) {
-
-        }
-
-        public void onActivityStopped(MonitoredActivity activity) {
-
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        for (listener in mListeners) {
+            listener.onActivityCreated(this)
         }
     }
 
-    public void addLifeCycleListener(LifeCycleListener listener) {
-        if (mListeners.contains(listener)) return;
-        mListeners.add(listener);
-    }
-
-    public void removeLifeCycleListener(LifeCycleListener listener) {
-
-        mListeners.remove(listener);
-    }
-
-    @Override
-    protected void onCreate(Bundle savedInstanceState) {
-        super.onCreate(savedInstanceState);
-        for (LifeCycleListener listener : mListeners) {
-            listener.onActivityCreated(this);
+    override fun onDestroy() {
+        super.onDestroy()
+        for (listener in mListeners) {
+            listener.onActivityDestroyed(this)
         }
     }
 
-    @Override
-    protected void onDestroy() {
-        super.onDestroy();
-        for (LifeCycleListener listener : mListeners) {
-            listener.onActivityDestroyed(this);
+    override fun onStart() {
+        super.onStart()
+        for (listener in mListeners) {
+            listener.onActivityStarted(this)
         }
     }
 
-    @Override
-    protected void onStart() {
-        super.onStart();
-        for (LifeCycleListener listener : mListeners) {
-            listener.onActivityStarted(this);
-        }
-    }
-
-    @Override
-    protected void onStop() {
-        super.onStop();
-        for (LifeCycleListener listener : mListeners) {
-            listener.onActivityStopped(this);
+    override fun onStop() {
+        super.onStop()
+        for (listener in mListeners) {
+            listener.onActivityStopped(this)
         }
     }
 }
